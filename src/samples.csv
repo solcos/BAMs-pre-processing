@@ -1,0 +1,7 @@
+# CSV file to put the list of samples to be processed with the pre-process BAM files workflow.
+# Respect the following structure adding the samples with no empty lines between them and keeping the Samples title with ":" above them.
+# NOTE: The path to each sample has to be relative to the folder where the 'pre_process_bam.sh' script is, or use the absolute path.
+
+Samples:
+/slgpfs/projects/slc00/sv_data/data/bam/NA12878.chrom20.ILLUMINA.bwa.CEU.low_coverage.20121211.sort.marked_duplicates.bam
+/slgpfs/projects/slc00/sv_data/data/bam/NA12878.chrom11.ILLUMINA.bwa.CEU.low_coverage.20121211.sort.marked_duplicates.bam

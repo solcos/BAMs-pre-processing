@@ -1,0 +1,29 @@
+version: '0.1'
+
+###############################
+
+### Configuration pre-process BAMs 
+
+###############################
+
+REQUIRED_SETTINGS:
+    SAMPLES: 'samples.csv' # Path to the input CSV file with the samples.
+    REFERENCE_GENOME: '/slgpfs/projects/slc00/sv_data/data/fasta/hs37d5.fasta' # Path to the reference genome of the input bam file. 
+    TMP_DIR: '/slgpfs/projects/slc00/sv_data/tmp' # Set the path to the temprorary files directory.
+
+PROGRAM_SETTINGS:
+    OUTPUT_DIR: '/slgpfs/projects/slc00/sv_data/results' # Path to the directory for the output files. (ie. directory path). Same directory as default. 
+    SORT_THREADS: 8 # Set the number of additional threads to use for the 'samtools sort' function (-@/--threads) (ie. 4,8,16). Default 8 threads.
+    SORT_MEM: '500M' # Set the maximum memory per thread to use in the 'samtools sort' function (-m) (ie. 750K, 500M, 1G). Default 500M.
+
+OPTIONAL_SETTINGS:
+    BQSR: 'true' # True = Execute BQSR function, False = no execution BQSR.
+    FORCE_SORT_COORDINATES: 'false' # True = Force sort bam file by coordinates.
+    FORCE_NOT_MARK_DUPLICATES: 'false' # True = Force not to perform mark duplicates the bam file.
+    RM_SORT_MARKED_FILE: 'false' # True = Remove the intermidate file 'sort.marked_duplicates'. Only set 'True' if the 'BQSR' is also set True.
+    INITIAL_INFO: 'true' # True = Get initial information of the initial bam file (True).
+    FINAL_STATISTICS: 'true' # Get final statistics of the final bam file, and comparison with the initial bam file (True).
+    RM_TMP_FILES: 'true' # Set 'true' to remove the temporary files. False no remove.
+    INDEX_INPUT_FILE: 'false' # Set 'true' to index the input bam file.
+    CLEAN_SAM: 'false' # To execute the CleanSam fuction (true). Default false.
+    VALIDATE_SAM_FILE: 'false' # To execute the ValidateSamFile fuction (true). Default false.
