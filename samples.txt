@@ -1,0 +1,7 @@
+# TXT file to put the list of samples to be processed with the pre-process BAM files workflow.
+# No samples with the same names are allowed.
+# NOTE: The path to each sample has to be relative to the folder where the 'pre_process_bam.sh' script is, or use the absolute path.
+# Samples:
+/slgpfs/projects/slc00/sv_data/data/bam/COLO829R_dedup.realigned.bam
+/slgpfs/projects/slc00/sv_data/data/bam/NA12878.chrom11.ILLUMINA.bwa.CEU.low_coverage.20121211.sort.marked_duplicates.bam
+/slgpfs/projects/slc00/sv_data/data/bam/NA12878.chrom11.ILLUMINA.bwa.CEU.low_coverage.20121211.sort.marked_duplicates.bam
