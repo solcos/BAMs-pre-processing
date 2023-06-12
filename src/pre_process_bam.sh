@@ -460,7 +460,7 @@ trap "echo; exit" INT
 # Create results folder (end directory)
 TIME=$(date +%Y%m%d%H%M%S)
 ##random_number=$((RANDOM % 100))  # Generate a random number between 0 and 99
-enddir=${OUTPUT_DIR}/${filename} ##_${TIME}.${random_number}
+enddir=${OUTPUT_DIR}/${filename}_${TIME} #.${random_number}
 
 mkdir -p $enddir
 
