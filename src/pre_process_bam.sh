@@ -110,7 +110,11 @@ usage() {
 # Function: Exit with error
 exit_abnormal() {
   usage
-  rm -f .job_${filename}.cmd # Remove the job wrapper
+  # Remove tmp folder for sample
+  rm -r -f ${TMP_DIR_SAMPLE}
+
+  # Remove the job wrapper
+  rm -f ${TMP_DIR}/.job_${filename}.cmd 
   exit 1
 }
 
@@ -119,6 +123,11 @@ exit_abnormal() {
 ###################
 # Configuration variables and paths
 ###################
+
+# NOTE:  All the paths must be relative to where the 'pre_process_bam.cmd' launcher is.
+
+# Declare date variable
+date_var=$(date +"%F %H:%M:%S")
 
 # Setting variables values file
 conf_file='./conf.yaml' 
@@ -130,14 +139,14 @@ if [ -z $conf.yaml ]; then
 fi
 
 # Path to Structural Variants known-sites
-known_sites="/slgpfs/projects/slc00/sv_data/data/vcf/gnomad_v2.1_sv.sites.vcf.gz"
+known_sites="./data/vcf/gnomad_v2.1_sv.sites.vcf.gz"
 
 # Path to calculate statistics and depth coverage programs
-calculate_statistics="/slgpfs/projects/slc00/sv_data/src/calculate_statistics.sh"
-calculate_depth_coverage="/slgpfs/projects/slc00/sv_data/src/calculate_depth_coverage.sh"
+calculate_statistics="./src/calculate_statistics.sh"
+calculate_depth_coverage="./src/calculate_depth_coverage.sh"
 
 # Path to yq program folder
-yq_path="/slgpfs/projects/slc00/sv_data/bin"
+yq_path="./bin"
 
 # Check if 'yq' exists in the path
 if [ -z ${yq_path}/yq ]; then
@@ -164,7 +173,6 @@ FORCE_NOT_MARK_DUPLICATES=$(${yq_path}/yq '.OPTIONAL_SETTINGS.FORCE_NOT_MARK_DUP
 RM_SORT_MARKED_FILE=$(${yq_path}/yq '.OPTIONAL_SETTINGS.RM_SORT_MARKED_FILE' $conf_file); RM_SORT_MARKED_FILE=${RM_SORT_MARKED_FILE:-true} # True = Remove the intermidate file 'sort.marked_duplicates'. Only set True if 'BQSR' is also set True.
 INITIAL_INFO=$(${yq_path}/yq '.OPTIONAL_SETTINGS.INITIAL_INFO' $conf_file); INIITIAL_INFO=${INITIAL_INFO:-true} # True = Get initial information of the initial bam file (True).
 FINAL_STATISTICS=$(${yq_path}/yq '.OPTIONAL_SETTINGS.FINAL_STATISTICS' $conf_file); FINAL_STATISTICS=${FINAL_STATISTICS:-true} # Get final statistics of the final bam file, and comparison with the initial bam file (True).
-RM_TMP_FILES=$(${yq_path}/yq '.OPTIONAL_SETTINGS.RM_TMP_FILES' $conf_file); RM_TMP_FILES=${RM_TMP_FILES:-true} # Set 'true' to remove the temporary files. False no remove.
 INDEX_INPUT=$(${yq_path}/yq '.OPTIONAL_SETTINGS.INDEX_INPUT_FILE' $conf_file); INDEX_INPUT=${INDEX_INPUT:-false} # Set 'true' to index the input bam file 
 CLEAN_SAM=$(${yq_path}/yq '.OPTIONAL_SETTINGS.CLEAN_SAM' $conf_file); CLEAN_SAM=${CLEAN_SAM:-false} # To execute the CleanSam fuction (true). Default false.
 VALIDATE_SAM=$(${yq_path}/yq '.OPTIONAL_SETTINGS.VALIDATE_SAM_FILE' $conf_file); VALIDATE_SAM=${VALIDATE_SAM:-false} # To execute the ValidateSamFile fuction (true). Default false.
@@ -189,9 +197,6 @@ unset LOG_FILE
 
 # Sets the locale environment variable to "C" in the Bash shell
 export LC_ALL=C
-
-# Declare date variable
-date_var=$(date +"%F %H:%M:%S")
 
 ##############################################################
 
@@ -307,6 +312,9 @@ elif ! [ -w $TMP_DIR ]; then
 else
     # Set full dir
     TMP_DIR=$(echo $(readlink -f "$TMP_DIR"))
+    # Create tmp folder for sample
+    mkdir -p ${TMP_DIR}/${filename}_tmp
+    TMP_DIR_SAMPLE="${TMP_DIR}/${filename}_tmp"
 fi
 
 # Check 'OUTPUT_DIR' parameter was passed to the script
@@ -400,12 +408,6 @@ if ! [[ "${FINAL_STATISTICS,,}" == "true" ]] && ! [[ "${FINAL_STATISTICS,,}" == 
     exit_abnormal
 fi
 
-# RM_TMP_FILES
- if ! [[ "${FORCE_SORT,,}" == "true" ]] && ! [[ "${FORCE_SORT,,}" == "false" ]]; then   # if $RM_TMP_FILES is not boolean:
-    echo -e "${red}ERROR${clear}    ${date_var} 'RM_TMP_FILES' must be a boolean, true/false."
-    exit_abnormal
-fi
-
 # INDEX_INPUT
 if ! [[ "${INDEX_INPUT,,}" == "true" ]] && ! [[ "${INDEX_INPUT,,}" == "false" ]]; then # if $INDEX_INPUT is not boolean:
     echo -e "${red}ERROR${clear}    ${date_var} 'INDEX_INPUT' must be a boolean, true/false."
@@ -459,10 +461,8 @@ trap "echo; exit" INT
 
 # Create results folder (end directory)
 TIME=$(date +%Y%m%d%H%M%S)
-##random_number=$((RANDOM % 100))  # Generate a random number between 0 and 99
 enddir=${OUTPUT_DIR}/${filename}_${TIME} #.${random_number}
-
-mkdir -p $enddir
+mkdir $enddir
 
 # Create error logs split file
 touch ${enddir}/${filename}_split_sample.log
@@ -486,17 +486,17 @@ fi
 if ! [ "$(ls -A ${enddir})" ]; then
     # Folder is empty. Remove it
     rm -r -f ${enddir}
-    
 fi
 
 # If we have more than one sample to be processed
-if [ `cat ${OUTPUT_DIR}/.samples_tmp.txt | wc -l` -gt 1 ]
+if [ `cat ${enddir}/list_of_samples.txt | wc -l` -gt 1 ]
 then
     # Continue the while loop (next sample)
     continue
 else
     #rm -f ${OUTPUT_DIR}/.samples_tmp.txt
-    rm -f .job_${filename}.cmd # Remove the job wrapper
+    rm -r -f ${TMP_DIR_SAMPLE}
+    rm -f ${TMP_DIR}/.job_${filename}.cmd # Remove the job wrapper
     exit 1
 fi
 }
@@ -507,23 +507,15 @@ trap 'handle_error' ERR
 # Trap the final message to only echo if the script has been run successfully
     
 exit_normal() {
-   ##rm -f ${OUTPUT_DIR}/.samples_tmp.txt
-
-   # Remove temporary files
-    N_TMP_FILES=$(ls ${TMP_DIR} | wc -l) # Set number of temporary files
-
-    if [ "${RM_TMP_FILES,,}" = "true" ];
-    then
-        if [[ $N_TMP_FILES -gt 0 ]];
-        then
-            echo -e "${green}INFO${clear}    ${date_var} Removing ${N_TMP_FILES} temporary file(s)" 
-            rm -r -f ${TMP_DIR}/*
-
-        fi
-    fi
+  
+    # Remove temporary files
+    N_TMP_FILES=$(ls ${TMP_DIR} | wc -l) # Set number of temporary files 
+    echo -e "${green}INFO${clear}    ${date_var} Removing ${N_TMP_FILES} temporary file(s)" 
     
-    rm -f .job_${filename}.cmd # Remove the job wrapper
-    
+    rm -r -f ${TMP_DIR_SAMPLE} 
+        
+    rm -f ${TMP_DIR}/.job_${filename}.cmd # Remove the job wrapper
+
     echo -e "${green}INFO${clear}    ${date_var} Check the results in '${enddir}' folder."
     echo -e "${green}##### END OF THE PIPELINE #####${clear}" >&3
 }
@@ -553,7 +545,7 @@ if [[ $multi_sample -gt 1 ]];then
     echo -e "${green}INFO${clear}    ${date_var} BAM file has more than one sample" >&3
     echo -e "${green}INFO${clear}    ${date_var} Splitting BAM file" >&3
         
-    gatk SplitReads -I ${fullname} -O ${enddir} --split-sample true --create-output-bam-index false --read-validation-stringency LENIENT --tmp-dir ${TMP_DIR} --add-output-sam-program-record true &>> ${enddir}/${filename}_split_sample.log
+    gatk SplitReads -I ${fullname} -O ${enddir} --split-sample true --create-output-bam-index false --read-validation-stringency LENIENT --tmp-dir ${TMP_DIR_SAMPLE} --add-output-sam-program-record true &>> ${enddir}/${filename}_split_sample.log
         
     echo -e "${green}INFO${clear}    ${date_var} Splitting of BAM file done. See '${enddir}/${filename}_split_sample.log'" >&3
         
@@ -574,17 +566,17 @@ if [[ $multi_sample -gt 1 ]];then
             if ! [[ "$filename_string" == *"$sample_tag"* ]];
             then
                 # Extract the original header, remove the lines where the sample name that we dont want is found and change the header of the original file
-                samtools view -H ${bad_head_bam} > ${enddir}/.header.sam
+                samtools view -H ${bad_head_bam} > ${TMP_DIR_SAMPLE}/.header.sam
 
-                sed  "/^@RG.*SM:${sample_tag}/ d" ${enddir}/.header.sam > ${enddir}/.header_corrected.sam
+                sed  "/^@RG.*SM:${sample_tag}/ d" ${TMP_DIR_SAMPLE}/.header.sam > ${TMP_DIR_SAMPLE}/.header_corrected.sam
 
-                samtools reheader ${enddir}/.header_corrected.sam ${bad_head_bam} > ${enddir}/.tmp_reheader.bam
+                samtools reheader ${TMP_DIR_SAMPLE}/.header_corrected.sam ${bad_head_bam} > ${TMP_DIR_SAMPLE}/.tmp_reheader.bam
 
                 # Change the name to the original filename
-                mv ${enddir}/.tmp_reheader.bam ${bad_head_bam}
+                mv ${TMP_DIR_SAMPLE}/.tmp_reheader.bam ${bad_head_bam}
 
                 # Remove intermediate files
-                rm -f ${enddir}/.header.sam ${enddir}/.header_corrected.sam
+                rm -f ${TMP_DIR_SAMPLE}/.header.sam ${TMP_DIR_SAMPLE}/.header_corrected.sam
             fi
         done
     done
@@ -626,7 +618,7 @@ do
     handle_error() {
         status=$?
         echo -e "${red}ERROR${clear}    ${date_var} Command failed with status ${status}. See '${LOG_FILE}'" >&3
-        rm -f .job_${filename}.cmd # Remove the job wrapper
+        rm -f ${TMP_DIR}/.job_${filename}.cmd # Remove the job wrapper
         exit 1
     }
 
@@ -681,8 +673,6 @@ do
                     
                             FINAL_STATISTICS --- ${FINAL_STATISTICS}
                     
-                            RM_TMP_FILES --- ${RM_TMP_FILES}
-                    
                             INDEX_INPUT_FILE --- ${INDEX_INPUT}
 
                             CLEAN_SAM --- ${CLEAN_SAM}
@@ -706,7 +696,7 @@ do
     then
         echo -e "${green}INFO${clear}    ${date_var} Start CleanSam"
              
-        gatk CleanSam --INPUT ${fullname} --OUTPUT ${enddir}/${filename}_clean.bam --VALIDATION_STRINGENCY LENIENT --TMP_DIR ${TMP_DIR}
+        gatk CleanSam --INPUT ${fullname} --OUTPUT ${enddir}/${filename}_clean.bam --VALIDATION_STRINGENCY LENIENT --TMP_DIR ${TMP_DIR_SAMPLE}
         mv ${enddir}/${filename}_clean.bam ${enddir}/${filename}.bam # Change the file name to the initial one
             
         echo -e "${green}INFO${clear}    ${date_var} CleanSam done"
@@ -855,7 +845,7 @@ do
         echo -e "${green}INFO${clear}    ${date_var} START SORT BY COORDINATES" 
             
         # SAMTOOLS SORT
-        samtools sort ${fullname} -m ${SORT_MEM} --threads ${SORT_THREADS} -T ${TMP_DIR} -o ${enddir}/${filename}.sort.bam
+        samtools sort ${fullname} -m ${SORT_MEM} --threads ${SORT_THREADS} -T ${TMP_DIR_SAMPLE} -o ${enddir}/${filename}.sort.bam
 
         # GATK SORT
         #/vault/mauricio/bio_team/gatk/gatk-4.2.6.0/./gatk SortSam INPUT=${fullname} OUTPUT=${enddir}/${filename}sort.bam SORT_ORDER=coordinate --TMP_DIR /vault/bio-scratch/arnau/structural_variants/tmp_files --VALIDATION_STRINGENCY LENIENT 
@@ -863,7 +853,7 @@ do
         echo -e "${green}INFO${clear}    ${date_var} SORT BY COORDINATES DONE" 
 
     else
-        echo -e "${yellow}WARNING${clear} ${date_var} File is already sorted by coordinates - sorting is not performed" 
+        echo -e "${yellow}WARNING${clear} ${date_var} Assuming file is already sorted by coordinates: Sorting is not performed" 
             
         echo -e "${green}INFO${clear}    ${date_var} Copying file to the correct folder"
  
@@ -886,7 +876,7 @@ do
 
         echo -e "${green}INFO${clear}    ${date_var} START MARK DUPLICATES" 
             
-        gatk MarkDuplicates -I ${enddir}/${filename}.sort.bam -O ${enddir}/${filename}.sort.marked_duplicates.bam -M ${enddir}/${filename}.sort.marked_duplicates_metrics.txt --TMP_DIR ${TMP_DIR} --VALIDATION_STRINGENCY LENIENT --ADD_PG_TAG_TO_READS true --ASSUME_SORTED true 
+        gatk MarkDuplicates -I ${enddir}/${filename}.sort.bam -O ${enddir}/${filename}.sort.marked_duplicates.bam -M ${enddir}/${filename}.sort.marked_duplicates_metrics.txt --TMP_DIR ${TMP_DIR_SAMPLE} --VALIDATION_STRINGENCY LENIENT --ADD_PG_TAG_TO_READS true --ASSUME_SORTED true 
 
         # Validation stringency for all SAM files read by this program. Setting stringency to SILENT can improve performance when processing a BAM file in which variable-length data (read, qualities, tags) do not otherwise need to be decoded. For memory issues (ie. --java-options "-Xmx5g -Djava.io.tmpdir=${TMP_DIR}")
 
@@ -894,7 +884,7 @@ do
 
     else
 
-        echo -e "${yellow}WARNING${clear} ${date_var} File is already marked by duplicates: MarkDuplicates (GATK) is not applied" 
+        echo -e "${yellow}WARNING${clear} ${date_var} Assuming file is already marked by duplicates: MarkDuplicates (GATK) is not applied" 
             
         echo -e "${green}INFO${clear}    ${date_var} Copying file to the correct folder" 
         cp ${enddir}/${filename}.sort.bam ${enddir}/${filename}.sort.marked_duplicates.bam
@@ -927,7 +917,7 @@ do
 
         echo -e "${green}INFO${clear}    ${date_var} START BASE RECALIBRATOR"
          
-        gatk BaseRecalibrator -I ${enddir}/${filename}.sort.marked_duplicates.bam -R ${REFERENCE_GENOME} --known-sites ${known_sites} -O ${enddir}/${filename}.recal_data.table --tmp-dir ${TMP_DIR} --read-validation-stringency LENIENT --add-output-sam-program-record true 
+        gatk BaseRecalibrator -I ${enddir}/${filename}.sort.marked_duplicates.bam -R ${REFERENCE_GENOME} --known-sites ${known_sites} -O ${enddir}/${filename}.recal_data.table --tmp-dir ${TMP_DIR_SAMPLE} --read-validation-stringency LENIENT --add-output-sam-program-record true 
 
         echo -e "${green}INFO${clear}    ${date_var} BASE RECALIBRATOR DONE" 
 
@@ -937,7 +927,7 @@ do
 
         echo -e "${green}INFO${clear}    ${date_var} START APPLY BQSR"
  
-        gatk ApplyBQSR -R ${REFERENCE_GENOME} -I ${enddir}/${filename}.sort.marked_duplicates.bam --bqsr-recal-file ${enddir}/${filename}.recal_data.table -O ${enddir}/${filename}.sort.marked_duplicates.BQSR.bam  --add-output-sam-program-record true --create-output-bam-index false --read-validation-stringency LENIENT --tmp-dir ${TMP_DIR} 
+        gatk ApplyBQSR -R ${REFERENCE_GENOME} -I ${enddir}/${filename}.sort.marked_duplicates.bam --bqsr-recal-file ${enddir}/${filename}.recal_data.table -O ${enddir}/${filename}.sort.marked_duplicates.BQSR.bam  --add-output-sam-program-record true --create-output-bam-index false --read-validation-stringency LENIENT --tmp-dir ${TMP_DIR_SAMPLE} 
 
     #--create-output-bam-index true #--preserve-qscores-less-than 10 
 
@@ -1048,4 +1038,3 @@ do
     echo -e "${green}INFO${clear}    ${date_var} Processing of '${filename}.bam' done!" >&3
 
 done # End for loop for multiple sample
-###############################################################
