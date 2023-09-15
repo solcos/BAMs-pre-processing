@@ -6,7 +6,8 @@ version: '0.1'
 
 ###############################
 
-# NOTE: It is suggested to use the relative path from the folder where the 'conf.yaml' file is or the full path to the different files/folders.
+# NOTES: It is suggested to use the relative path from the folder where the 'conf.yaml' file is or the full path to the different files/folders.
+# Take into account that some parameters afect to all the samples, such as reference genome, model type and number of threads, among others. The 'samples.txt' file must contain samples which the same parameters could be run at the moment of processing and launching the job.
 
 REQUIRED_SETTINGS:
     SAMPLES: 'samples.txt' # Path to the input 'txt' file with the list of samples.
@@ -15,18 +16,17 @@ REQUIRED_SETTINGS:
 
 PROGRAM_SETTINGS:
     OUTPUT_DIR: './results' # Path to the directory for the output files. (ie. directory path). Same directory as default. 
-    SORT_THREADS: 8 # Set the number of additional threads to use for the 'samtools sort' function (-@/--threads) (ie. 4,8,16). Default 8 threads.
-    SORT_MEM: '500M' # Set the maximum memory per thread to use in the 'samtools sort' function (-m) (ie. 750K, 500M, 1G). Default 500M.
-    ##PARALLEL_MAX_PROCS: '4' # Set the maximum parallel threads/processes that will be parallelized in order to process different samples at the same time. Rmember that each process will be consuming the the maximum amount of memory that is specified in the 'SORT_THREADS' and 'SORT_MEM'parameters and all these paramaters depend at the same time at the nimber of cpu and mempry that the system has or is asked for.
-
+    THREADS: 8 # Set the number of additional threads to use for the 'samtools sort' function (-@/--threads) (ie. 4,8,16). Also, set the number of cores for the SNV calling with DeepVariant (nprocs). Default 8 threads.
+    MEM: '500M' # Set the maximum memory per thread to use in the 'samtools sort' function (-m) (ie. 750K, 500M, 1G). Default 500M.
+   
 OPTIONAL_SETTINGS:
     BQSR: 'false' # True = Execute BQSR function, False = no execution BQSR.
-    FORCE_SORT_COORDINATES: 'false' # True = Force sort bam file by coordinates.
-    FORCE_NOT_MARK_DUPLICATES: 'false' # True = Force not to perform mark duplicates the bam file.
+    FORCE_SORT_COORDINATES: 'false' # True = Force sort bam file by coordinates. The script is designed to avoid sorting if it is already done. Named as such.
+    FORCE_NOT_MARK_DUPLICATES: 'true' # True = Force not to perform mark duplicates the bam file. Will be assumed that the file is already marked, named as such.
     RM_SORT_MARKED_FILE: 'false' # True = Remove the intermidate file 'sort.marked_duplicates'. Only set 'True' if the 'BQSR' is also set True.
     INITIAL_INFO: 'true' # True = Get initial information of the initial bam file (True).
     FINAL_STATISTICS: 'true' # Get final statistics of the final bam file, and comparison with the initial bam file (True).
-    RM_TMP_FILES: 'true' # Set 'true' to remove the temporary files. False no remove.
     INDEX_INPUT_FILE: 'false' # Set 'true' to index the input bam file.
     CLEAN_SAM: 'false' # To execute the CleanSam fuction (true). Default false.
     VALIDATE_SAM_FILE: 'false' # To execute the ValidateSamFile fuction (true). Default false.
+
